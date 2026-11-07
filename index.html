@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#10131d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ASHBOUND">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>ASHBOUND — roguelite</title>
+<style>
+:root{color-scheme:dark;--bg:#10131d;--panel:#191e2b;--gold:#f5c66a;--red:#f06b72;--muted:#9ca7bc}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;height:100dvh;overflow:hidden;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#f5f6fb;touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#wrap{height:100%;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#252b3b 0,#10131d 70%)}
+#gamebox{position:relative;width:min(100vw,calc(100dvh * 16 / 9));height:min(100dvh,calc(100vw * 9 / 16));aspect-ratio:16/9;overflow:hidden;background:#151a27;box-shadow:0 20px 80px #0009}
+canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
+#hud{position:absolute;inset:0;pointer-events:none;padding:clamp(8px,2vw,20px);display:flex;justify-content:space-between;align-items:flex-start;text-shadow:0 2px 4px #000}
+.hudleft{width:34%;max-width:260px}.hudright{text-align:right;font-size:clamp(10px,1.3vw,14px);color:#d7dced}
+.brand{font-weight:900;letter-spacing:.2em;font-size:clamp(10px,1.5vw,16px);color:var(--gold);margin-bottom:8px}
+.bar{height:10px;background:#34394a;border:1px solid #667087;border-radius:20px;overflow:hidden;margin:4px 0 7px}
+.fill{height:100%;width:100%;transition:width .15s}.hp{background:linear-gradient(90deg,#b83e54,#ff7c7c)}.xp{background:linear-gradient(90deg,#46b9bd,#a5f2df)}
+.small{font-size:clamp(9px,1.15vw,12px);color:#c3cada}
+#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#090c15b8;backdrop-filter:blur(5px);padding:16px}
+.panel{width:min(560px,94%);max-height:95%;overflow:auto;background:linear-gradient(145deg,#222a3a,#151a27);border:1px solid #586078;border-radius:16px;padding:clamp(18px,4vw,34px);box-shadow:0 18px 60px #000b;text-align:center}
+h1{font-size:clamp(28px,6vw,54px);line-height:1;margin:0 0 10px;letter-spacing:.12em;color:var(--gold)}
+h2{font-size:clamp(20px,3vw,28px);margin:0 0 10px}
+p{color:#c4ccdc;line-height:1.5;font-size:clamp(12px,1.7vw,15px)}
+button{font:inherit;cursor:pointer;color:#10131d;background:linear-gradient(180deg,#ffdc91,#e6ad4d);border:0;border-radius:9px;padding:11px 20px;font-weight:900;letter-spacing:.04em;box-shadow:0 4px 0 #95672e;margin:5px}
+button:active{transform:translateY(2px);box-shadow:0 2px 0 #95672e}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px}
+.card{background:#2b3447;border:1px solid #58647d;color:#f5f6fb;border-radius:10px;padding:14px 8px;box-shadow:none;min-height:112px}
+.card b{display:block;color:var(--gold);margin-bottom:7px}.card span{font-size:12px;color:#c4ccdc;font-weight:500}
+#touch{position:absolute;inset:auto 0 0;display:none;justify-content:space-between;align-items:end;padding:12px;pointer-events:none}
+.pad,.actions{display:flex;gap:8px;pointer-events:auto}
+.touchbtn{width:clamp(42px,9vw,64px);height:clamp(42px,9vw,64px);border-radius:50%;padding:0;background:#273247cc;border:1px solid #8490a8;color:#fff;box-shadow:0 3px 0 #1118;font-size:22px;touch-action:none}
+.touchbtn.attack{background:#9d394dcc;border-color:#ff9b9b}.touchbtn.dash{background:#386b83cc}
+#toast{position:absolute;top:17%;left:50%;transform:translateX(-50%);font-weight:900;color:var(--gold);text-shadow:0 2px 8px #000;font-size:clamp(12px,2vw,18px);pointer-events:none;opacity:0;transition:opacity .2s}
+@media(pointer:coarse){#touch{display:flex}}
+@media (orientation:portrait) and (max-width:900px){
+ #gamebox{width:100vw;height:auto;max-height:100dvh;aspect-ratio:16/9}
+ #wrap{align-items:center}
+ #touch{padding:8px}
+ .touchbtn{width:48px;height:48px;font-size:19px}
+ #portraitHint{display:flex}
+}
+@media (orientation:landscape) and (pointer:coarse){
+ #gamebox{width:min(100vw,calc(100dvh * 16 / 9));height:min(100dvh,calc(100vw * 9 / 16))}
+ #touch{padding:max(10px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-right)) 12px max(12px,env(safe-area-inset-left))}
+ .touchbtn{width:clamp(48px,8vh,68px);height:clamp(48px,8vh,68px)}
+}
+@media(max-width:600px){.cards{grid-template-columns:1fr}.card{min-height:65px}.card span{font-size:11px}.panel{padding:15px}.hudleft{width:42%}}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="gamebox">
+<canvas id="c" width="960" height="540"></canvas>
+<div id="hud">
+ <div class="hudleft"><div class="brand">ASHBOUND <span style="color:#dfe5f3;font-weight:500;letter-spacing:.05em">/ RUN <span id="run">1</span></span></div>
+  <div class="small">ŻYCIE <b id="hptext">100 / 100</b></div><div class="bar"><div id="hpbar" class="fill hp"></div></div>
+  <div class="small">DOŚWIADCZENIE <b id="xptext">0 / 5</b></div><div class="bar"><div id="xpbar" class="fill xp"></div></div>
+ </div>
+ <div class="hudright"><div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">POKÓJ <b id="room">1</b> · ZABÓJSTWA <b id="kills">0</b> <button id="pauseBtn" style="pointer-events:auto;padding:5px 9px;margin:0;font-size:11px">Ⅱ</button></div><div style="margin-top:6px">⚔ <span id="weapon">Żelazne ostrze</span></div><div style="margin-top:5px;color:#aeb8ca">A / D lub ← / → ruch · SPACJA skok<br>J atak · K unik</div></div>
+</div>
+<div id="toast"></div>
+<div id="portraitHint" style="display:none;position:absolute;left:50%;top:12%;transform:translateX(-50%);z-index:5;background:#111a;padding:8px 12px;border:1px solid #ffffff44;border-radius:9px;color:#fff;font-size:12px;text-align:center;pointer-events:none">Dla najlepszego widoku obróć telefon poziomo</div>
+<div id="touch">
+ <div class="pad"><button class="touchbtn" data-key="left">◀</button><button class="touchbtn" data-key="right">▶</button></div>
+ <div class="actions"><button class="touchbtn dash" data-key="dash">✦</button><button class="touchbtn" data-key="jump">↑</button><button class="touchbtn attack" data-key="attack">⚔</button></div>
+</div>
+<div id="overlay"><div class="panel" id="panel">
+ <h1>ASHBOUND</h1><p style="color:#f2c66f;font-weight:800;letter-spacing:.18em">A SIDE-SCROLLING ROGUELITE</p>
+ <p>Przedzieraj się przez ruiny, pokonuj wrogów i zbieraj relikty. Każdy run jest inny — wybieraj ulepszenia, ucz się ruchów przeciwników i dotrzyj jak najdalej.</p>
+ <p><b>Sterowanie:</b> A/D lub strzałki — ruch · Spacja — skok · J — atak · K — unik<br>Na telefonie obróć ekran poziomo i użyj przycisków ekranowych.</p>
+ <div id="profileStats" class="small" style="margin:12px 0">Najlepszy pokój: 0 · Łączne eliminacje: 0</div>
+ <button id="start">ROZPOCZNIJ RUN</button>
+ <p class="small">Gra działa lokalnie w przeglądarce. Najlepiej w trybie poziomym.</p>
+ </div></div>
+</div></div>
+<script>
+(()=>{
+const c=document.getElementById('c'),ctx=c.getContext('2d'),W=960,H=540;
+const $=id=>document.getElementById(id);
+let state='menu',keys={},player,enemies=[],particles=[],platforms=[],room=1,kills=0,xp=0,xpNeed=5,run=1,camera=0,shake=0,roomW=1500,spawnTimer=0,toastTimer=0,upgrades=[],last=0;
+const PROFILE_KEY='ashbound-profile-v1';
+let profile={bestRoom:0,totalKills:0,runs:0};
+try{profile={...profile,...JSON.parse(localStorage.getItem(PROFILE_KEY)||'{}')}}catch(e){}
+function saveProfile(){try{localStorage.setItem(PROFILE_KEY,JSON.stringify(profile))}catch(e){}}
+function renderProfile(){const el=$('profileStats');if(el)el.textContent='Najlepszy pokój: '+profile.bestRoom+' · Łączne eliminacje: '+profile.totalKills+' · Podejścia: '+profile.runs}
+const rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function toast(t){$('toast').textContent=t;$('toast').style.opacity=1;toastTimer=1.5}
+function makePlayer(){return{x:100,y:360,w:34,h:52,vx:0,vy:0,hp:100,maxHp:100,ground:false,face:1,atk:0,atkCd:0,dash:0,dashCd:0,inv:0,damage:25,speed:260,jump:590,range:72,crit:0}}
+function buildRoom(){
+ roomW=1500+Math.min(room*90,600);platforms=[{x:0,y:455,w:roomW,h:100}];
+ for(let x=220;x<roomW-150;x+=rand(220,330)){let y=rand(315,395);platforms.push({x,y,w:rand(110,190),h:18});}
+ enemies=[];
+ let count=2+Math.min(room,5);
+ for(let i=0;i<count;i++)spawnEnemy(rand(390,roomW-150));
+ if(room%4===0)spawnEnemy(roomW-280,true);
+ camera=0;player.x=100;player.y=360;player.vx=0;player.vy=0;
+ $('room').textContent=room;
+}
+function spawnEnemy(x,boss=false){enemies.push({x,y:boss?385:rand(380,405),w:boss?62:38,h:boss?70:46,hp:boss?220+room*25:55+room*8,max:boss?220+room*25:55+room*8,damage:boss?22:12+room, speed:boss?75:rand(65,95),boss,face:-1,atk:0,hit:0,dead:false});}
+function start(){player=makePlayer();room=1;kills=0;xp=0;xpNeed=5;run=1;profile.runs++;saveProfile();buildRoom();state='play';$('overlay').style.display='none';updateHud();toast('PRZETRWAJ I ZDOBĄDŹ RELIKTY');}
+function updateHud(){$('hptext').textContent=Math.ceil(player.hp)+' / '+player.maxHp;$('hpbar').style.width=100*player.hp/player.maxHp+'%';$('xptext').textContent=xp+' / '+xpNeed;$('xpbar').style.width=100*xp/xpNeed+'%';$('kills').textContent=kills;$('run').textContent=run;$('weapon').textContent=player.damage>=45?'Ostrze egzekutora':'Żelazne ostrze';}
+function showUpgrade(){
+ state='upgrade';let pool=[
+ ['Hart ducha','Zwiększ maksymalne życie o 25 i ulecz 25.',()=>{player.maxHp+=25;player.hp=Math.min(player.maxHp,player.hp+25)}],
+ ['Ostre ostrze','Zwiększ obrażenia o 12.',()=>player.damage+=12],
+ ['Lekkość','Zwiększ szybkość ruchu o 12%.',()=>player.speed*=1.12],
+ ['Wampiryzm','Odzyskuj 5 punktów życia za zabójstwo.',()=>player.healKill=(player.healKill||0)+5],
+ ['Długi zasięg','Zwiększ zasięg ataku o 22%.',()=>player.range*=1.22],
+ ['Drugi oddech','Skróć czas odnowienia uniku.',()=>player.dashPower=(player.dashPower||1)*.78]
+ ];
+ upgrades=[];while(upgrades.length<3){let u=pool[Math.floor(Math.random()*pool.length)];if(!upgrades.includes(u))upgrades.push(u)}
+ $('panel').innerHTML='<h2>WYBIERZ RELIKT</h2><p>Twoja moc rośnie. Wybierz jedno ulepszenie na dalszą drogę.</p><div class="cards">'+upgrades.map((u,i)=>`<button class="card" data-up="${i}"><b>${u[0]}</b><span>${u[1]}</span></button>`).join('')+'</div>';
+ $('overlay').style.display='flex';
+ document.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>{upgrades[+b.dataset.up][2]();state='play';$('overlay').style.display='none';updateHud();toast('RELIKT AKTYWOWANY')});
+}
+function nextRoom(){room++;run++;profile.bestRoom=Math.max(profile.bestRoom,room);saveProfile();renderProfile();buildRoom();toast(room%4===0?'CZUĆ OBECNOŚĆ STRAŻNIKA':'NOWE RUINY');}
+function hitEnemy(e,dmg){e.hp-=dmg;e.hit=.16;particles.push({x:e.x+e.w/2,y:e.y+20,vx:rand(-90,90),vy:rand(-150,-40),life:.35,color:'#ffd27b'});if(e.hp<=0&&!e.dead){e.dead=true;kills++;profile.totalKills++;profile.bestRoom=Math.max(profile.bestRoom,room);saveProfile();xp+=e.boss?4:1;if(player.healKill)player.hp=Math.min(player.maxHp,player.hp+player.healKill);if(xp>=xpNeed){xp-=xpNeed;xpNeed+=3;showUpgrade()}updateHud();}}
+function attack(){if(player.atkCd>0||state!=='play')return;player.atk=.22;player.atkCd=.38;let px=player.x+player.w/2+player.face*player.range*.45;for(let e of enemies){if(e.dead)continue;let dx=(e.x+e.w/2)-px;if(Math.abs(dx)<player.range&&Math.abs(e.y-player.y)<90&&Math.sign(dx||1)===player.face)hitEnemy(e,player.damage*(Math.random()<player.crit?.2:1));}}
+function hurt(d){if(player.inv>0)return;player.hp-=d;player.inv=.75;shake=8;particles.push({x:player.x+16,y:player.y+20,vx:rand(-100,100),vy:-100,life:.4,color:'#ff6678'});if(player.hp<=0){player.hp=0;profile.bestRoom=Math.max(profile.bestRoom,room);saveProfile();renderProfile();state='dead';$('panel').innerHTML=`<h2>RUN ZAKOŃCZONY</h2><p>Dotarłeś do pokoju <b>${room}</b> i pokonałeś <b>${kills}</b> przeciwników.</p><p class="small">Łączne eliminacje: ${profile.totalKills} · Rekord pokoju: ${profile.bestRoom}</p><button id="again">SPRÓBUJ PONOWNIE</button>`;$('overlay').style.display='flex';$('again').onclick=()=>start();}updateHud();}
+function rect(x,y,w,h,color){ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),w,h)}
+function draw(){
+ ctx.save();if(shake>0){ctx.translate(rand(-shake,shake),rand(-shake,shake));shake*=.85}
+ let g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#202a42');g.addColorStop(1,'#111622');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ // distant ruins and moon
+ ctx.fillStyle='#d5c6a0';ctx.globalAlpha=.12;ctx.beginPath();ctx.arc(760,100,42,0,7);ctx.fill();ctx.globalAlpha=1;
+ for(let i=0;i<9;i++){let x=((i*190-camera*.22)%1250+1250)%1250-100;rect(x,230+(i%3)*35,70,230,'#222c3c');rect(x+12,205+(i%3)*35,45,30,'#2c374b');}
+ ctx.save();ctx.translate(-camera,0);
+ // floor and platforms
+ platforms.forEach(p=>{rect(p.x,p.y,p.w,p.h,'#394253');rect(p.x,p.y,p.w,5,'#8d806b');for(let x=p.x+10;x<p.x+p.w;x+=38)rect(x,p.y+10,2,6,'#596174')});
+ // background floor cracks
+ for(let x=0;x<roomW;x+=95)rect(x,470,rand(10,28),2,'#596174');
+ enemies.forEach(e=>{if(e.dead)return;let col=e.boss?'#783d51':'#526d78';rect(e.x+5,e.y+e.h-5,e.w-10,8,'#0a0d14'); 
+ if(e.boss){ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(e.x+5,e.y+e.h);ctx.lineTo(e.x+2,e.y+20);ctx.lineTo(e.x+13,e.y+8);ctx.lineTo(e.x+22,e.y+15);ctx.lineTo(e.x+e.w/2,e.y-5);ctx.lineTo(e.x+e.w-20,e.y+13);ctx.lineTo(e.x+e.w-5,e.y+5);ctx.lineTo(e.x+e.w-2,e.y+e.h);ctx.closePath();ctx.fill();rect(e.x+13,e.y+26,9,7,'#ffd38a');rect(e.x+e.w-22,e.y+26,9,7,'#ffd38a');rect(e.x+e.w/2-9,e.y+43,18,5,'#321d2b')}
+ else{ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(e.x+4,e.y+e.h);ctx.lineTo(e.x+2,e.y+17);ctx.lineTo(e.x+9,e.y+5);ctx.lineTo(e.x+e.w-8,e.y+5);ctx.lineTo(e.x+e.w-2,e.y+18);ctx.lineTo(e.x+e.w-5,e.y+e.h);ctx.closePath();ctx.fill();rect(e.x+7,e.y+10,e.w-14,8,'#8da6a1');rect(e.x+(e.face===1?e.w-13:7),e.y+21,6,5,'#f6d48d');rect(e.x+9,e.y+e.h-12,e.w-18,4,'#26323e')}
+ rect(e.x,e.y-11,e.w,5,'#252d3d');rect(e.x,e.y-11,e.w*e.hp/e.max,5,e.boss?'#f0a15e':'#e46a72');if(e.hit>0)rect(e.x,e.y,e.w,e.h,'#fff')});
+ // player
+ if(player){let blink=player.inv>0&&Math.floor(performance.now()/70)%2===0;if(!blink){ // cape, armored torso, helmet and articulated limbs
+ rect(player.x+2,player.y+player.h-4,player.w-4,7,'#090d16');
+ ctx.fillStyle='#713f52';ctx.beginPath();ctx.moveTo(player.x+8,player.y+18);ctx.lineTo(player.x+2,player.y+44);ctx.lineTo(player.x+15,player.y+39);ctx.lineTo(player.x+27,player.y+45);ctx.lineTo(player.x+25,player.y+18);ctx.closePath();ctx.fill();
+ rect(player.x+8,player.y+20,19,25,'#b9c5d1');rect(player.x+7,player.y+25,21,5,'#59687b');rect(player.x+9,player.y+7,18,17,'#d8c39d');rect(player.x+5,player.y+5,25,8,'#46556b');rect(player.x+8,player.y+2,19,5,'#9daabd');rect(player.x+(player.face===1?22:7),player.y+13,5,4,'#202738');
+ rect(player.x+8,player.y+44,7,10,'#7d8a9b');rect(player.x+21,player.y+44,7,10,'#7d8a9b');rect(player.x+5,player.y+52,12,3,'#252c3a');rect(player.x+19,player.y+52,12,3,'#252c3a');
+ if(player.atk>0){ctx.save();ctx.translate(player.x+17,player.y+29);ctx.scale(player.face,1);ctx.strokeStyle='#f7d78c';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,player.range*.8,-.9,.9);ctx.stroke();ctx.fillStyle='#f4e6c4';ctx.beginPath();ctx.moveTo(7,-7);ctx.lineTo(player.range,-25);ctx.lineTo(player.range-8,4);ctx.lineTo(7,5);ctx.fill();ctx.restore();}else{rect(player.x+(player.face===1?27:-6),player.y+25,13,4,'#d8dce4');rect(player.x+(player.face===1?37:-8),player.y+22,3,10,'#d5a64f')}
+ }}
+ ctx.restore();
+ // particles
+ particles.forEach(p=>{ctx.globalAlpha=clamp(p.life*3,0,1);rect(p.x-camera,p.y,4,4,p.color)});ctx.globalAlpha=1;
+ // vignette
+ let vg=ctx.createRadialGradient(W/2,H/2,150,W/2,H/2,600);vg.addColorStop(0,'transparent');vg.addColorStop(1,'#050810aa');ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+ ctx.restore();
+}
+function update(dt){
+ if(state!=='play')return;
+ let p=player;p.atk=Math.max(0,p.atk-dt);p.atkCd=Math.max(0,p.atkCd-dt);p.dashCd=Math.max(0,p.dashCd-dt);p.inv=Math.max(0,p.inv-dt);
+ let dir=(keys.right?1:0)-(keys.left?1:0);if(dir){p.vx=dir*p.speed;p.face=dir}else p.vx*=Math.pow(.001,dt);
+ if(keys.jump&&p.ground){p.vy=-p.jump;p.ground=false;keys.jump=false}
+ if(keys.attack){attack();keys.attack=false}
+ if(keys.dash&&p.dashCd<=0){p.dash=.16;p.dashCd=.9*(p.dashPower||1);p.inv=Math.max(p.inv,.22);p.vx=p.face*690;keys.dash=false}
+ if(p.dash>0)p.dash-=dt;else p.vy+=1500*dt;
+ p.x=clamp(p.x+p.vx*dt,0,roomW-p.w);let oldY=p.y;p.y+=p.vy*dt;p.ground=false;
+ for(let pl of platforms){if(p.vy>=0&&oldY+p.h<=pl.y+5&&p.y+p.h>=pl.y&&p.x+p.w>pl.x&&p.x<pl.x+pl.w){p.y=pl.y-p.h;p.vy=0;p.ground=true}}
+ if(p.y>H+100)hurt(100);
+ enemies.forEach(e=>{if(e.dead)return;e.hit=Math.max(0,e.hit-dt);let dx=(p.x+p.w/2)-(e.x+e.w/2);e.face=dx>0?1:-1;if(Math.abs(dx)>48)e.x+=Math.sign(dx)*e.speed*dt;else if(Math.abs(p.y-e.y)<60&&e.atk<=0){e.atk=.8;if(Math.abs(dx)<e.w/2+p.w/2+8)hurt(e.damage)}e.atk=Math.max(0,e.atk-dt);e.x=clamp(e.x,0,roomW-e.w)});
+ enemies=enemies.filter(e=>!e.dead);
+ particles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=300*dt;p.life-=dt});particles=particles.filter(p=>p.life>0);
+ camera=clamp(p.x-W*.38,0,roomW-W);
+ if(enemies.length===0){if(room%4===0){toast('STRAŻNIK POKONANY!')}nextRoom()}
+ updateHud();
+}
+function frame(t){let dt=Math.min((t-last)/1000||0,.033);last=t;update(dt);draw();requestAnimationFrame(frame)}
+window.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener('keydown',e=>{let k=e.key.toLowerCase();if([' ','arrowleft','arrowright','arrowup'].includes(k))e.preventDefault();if(k==='a'||k==='arrowleft')keys.left=true;if(k==='d'||k==='arrowright')keys.right=true;if(k===' '||k==='w'||k==='arrowup')keys.jump=true;if(k==='j')keys.attack=true;if(k==='k'||k==='shift')keys.dash=true;if(k==='escape'&&state==='play'){state='pause';$('panel').innerHTML='<h2>PAUZA</h2><button id="resume">WRÓĆ DO GRY</button>';$('overlay').style.display='flex';$('resume').onclick=()=>{state='play';$('overlay').style.display='none'}}});
+window.addEventListener('keyup',e=>{let k=e.key.toLowerCase();if(k==='a'||k==='arrowleft')keys.left=false;if(k==='d'||k==='arrowright')keys.right=false});
+document.querySelectorAll('.touchbtn').forEach(b=>{let k=b.dataset.key;const on=e=>{e.preventDefault();keys[k]=true},off=e=>{e.preventDefault();if(k==='left'||k==='right')keys[k]=false};b.addEventListener('pointerdown',e=>{if(b.setPointerCapture){try{b.setPointerCapture(e.pointerId)}catch(_){}}on(e)});b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('lostpointercapture',off);b.addEventListener('pointerleave',e=>{if(k==='left'||k==='right')off(e)})});
+$('start').onclick=start;
+$('pauseBtn').onclick=()=>{if(state==='play'){state='pause';$('panel').innerHTML='<h2>PAUZA</h2><p>Gra została wstrzymana.</p><button id="resume">WRÓĆ DO GRY</button>';$('overlay').style.display='flex';$('resume').onclick=()=>{state='play';$('overlay').style.display='none'}}};
+renderProfile();
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+player=makePlayer();buildRoom();requestAnimationFrame(frame);
+})();
+</script>
+</body></html>
